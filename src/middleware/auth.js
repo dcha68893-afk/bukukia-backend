@@ -70,4 +70,26 @@ function requireSelfOrMinRole(getResourceUserId, minRole) {
   };
 }
 
-module.exports = { authenticateToken, optionalAuth, requireRole, requireMinRole, requireSelfOrMinRole };
+// Ministry-scoped leadership check. A 'leader' may only act on records tied to the
+// ministry they lead (req.user.ministryId); pastors/admins/super_admins are unrestricted.
+// getItemMinistryId(req) should resolve the ministryId of the record being acted on
+// (e.g. from an already-loaded record, or null for a brand-new record being created).
+function requireOwnMinistryOrMinRole(getItemMinistryId, minRole = 'pastor') {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+    if (isAtLeast(req.user.role, minRole)) return next(); // pastor+ bypass scoping entirely
+    if (req.user.role !== 'leader') {
+      return res.status(403).json({ success: false, message: 'You do not have permission to perform this action' });
+    }
+    if (!req.user.ministryId) {
+      return res.status(403).json({ success: false, message: 'You have not been assigned to a ministry yet. Ask your pastor or admin to assign you one before managing content.' });
+    }
+    const itemMinistryId = getItemMinistryId(req);
+    if (itemMinistryId && itemMinistryId !== req.user.ministryId) {
+      return res.status(403).json({ success: false, message: 'You can only manage content belonging to your own ministry.' });
+    }
+    next();
+  };
+}
+
+module.exports = { authenticateToken, optionalAuth, requireRole, requireMinRole, requireSelfOrMinRole, requireOwnMinistryOrMinRole };

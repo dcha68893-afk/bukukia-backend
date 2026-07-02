@@ -28,6 +28,17 @@ const LibraryDocument = require('./LibraryDocument');
 const InventoryItem = require('./InventoryItem');
 
 // ---- Associations ----
+
+// Ministry-scoped leadership: a leader belongs to exactly one ministry and is
+// restricted (in the routes layer) to managing that ministry's own events/content.
+User.belongsTo(Ministry, { foreignKey: 'ministryId', as: 'ministry' });
+Ministry.hasMany(User, { foreignKey: 'ministryId', as: 'leaders' });
+User.belongsTo(CellGroup, { foreignKey: 'cellGroupId', as: 'cellGroup' });
+
+// Events optionally belong to a ministry (null = church-wide event).
+Event.belongsTo(Ministry, { foreignKey: 'ministryId', as: 'ministry' });
+Ministry.hasMany(Event, { foreignKey: 'ministryId', as: 'events' });
+
 Event.hasMany(EventRegistration, { foreignKey: 'eventId', as: 'registrations' });
 EventRegistration.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
 EventRegistration.belongsTo(User, { foreignKey: 'userId', as: 'user' });

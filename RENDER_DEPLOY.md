@@ -61,11 +61,14 @@ This creates the first super admin: `admin@gwikongepefa.org` / `ChangeMe123!`
 The frontend is plain HTML/CSS/JS — deploy it to any static host:
 - **Render Static Site**: New → Static Site → root = `frontend/` → publish dir = `.`
 - **Netlify / Vercel / GitHub Pages**: drag-and-drop the `frontend/` folder
-- **Set the API URL**: Before deploying, edit `frontend/js/api.js`:
-  ```js
-  const API_BASE_URL = 'https://your-render-backend-url.onrender.com/api';
-  ```
-  Or add this line to each page's `<head>` before `api.js` loads:
+- **API URL**: `frontend/js/api.js` auto-detects production vs. localhost, so no edit
+  is needed for the standard deployment (backend at
+  `https://bukukia-backend.onrender.com`, frontend at
+  `https://bukuria-frontend.onrender.com`). To point at a different backend, add this
+  to a page's `<head>` before `api.js` loads:
   ```html
   <script>window.PEFA_API_BASE_URL = 'https://your-backend.onrender.com/api';</script>
   ```
+- **Important**: whatever origin the frontend is actually deployed at, set the
+  backend's `CLIENT_URL` environment variable to match it exactly, or the browser
+  will block API requests with a CORS error.

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { Op } = require('sequelize');
-const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
+const { authenticateToken, requireRole, optionalAuth, requireOwnMinistryOrMinRole } = require('../middleware/auth');
 const { Event, EventRegistration } = require('../models');
 
 // Public list (church calendar) - supports ?upcoming=true & ?category=
@@ -63,26 +63,43 @@ router.post('/:id/register', optionalAuth, async (req, res, next) => {
 });
 
 // Admin: create/update/delete events
-router.post('/', authenticateToken, requireRole('admin', 'super_admin', 'leader', 'pastor'), async (req, res, next) => {
-  try {
-    const event = await Event.create(req.body);
-    res.status(201).json({ success: true, data: event });
-  } catch (err) { next(err); }
-});
+// Leaders may only create events for the ministry they lead; pastors/admins can
+// create any event, including church-wide events (ministryId left blank).
+router.post('/', authenticateToken, requireRole('admin', 'super_admin', 'leader', 'pastor'),
+  requireOwnMinistryOrMinRole(() => null), // null = new record, so this just enforces "leader must have a ministry"
+  async (req, res, next) => {
+    try {
+      const body = { ...req.body };
+      if (req.user.role === 'leader') {
+        body.ministryId = req.user.ministryId; // leaders can't assign events to another ministry
+      }
+      const event = await Event.create(body);
+      res.status(201).json({ success: true, data: event });
+    } catch (err) { next(err); }
+  });
 
 router.put('/:id', authenticateToken, requireRole('admin', 'super_admin', 'leader', 'pastor'), async (req, res, next) => {
   try {
     const event = await Event.findByPk(req.params.id);
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (req.user.role === 'leader') {
+      if (!req.user.ministryId || event.ministryId !== req.user.ministryId) {
+        return res.status(403).json({ success: false, message: 'You can only manage events belonging to your own ministry.' });
+      }
+      delete req.body.ministryId; // can't move an event to another ministry
+    }
     await event.update(req.body);
     res.json({ success: true, data: event });
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', authenticateToken, requireRole('admin', 'super_admin'), async (req, res, next) => {
+router.delete('/:id', authenticateToken, requireRole('admin', 'super_admin', 'pastor', 'leader'), async (req, res, next) => {
   try {
     const event = await Event.findByPk(req.params.id);
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (req.user.role === 'leader' && (!req.user.ministryId || event.ministryId !== req.user.ministryId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete events belonging to your own ministry.' });
+    }
     await event.destroy();
     res.json({ success: true, message: 'Event deleted' });
   } catch (err) { next(err); }
@@ -91,6 +108,11 @@ router.delete('/:id', authenticateToken, requireRole('admin', 'super_admin'), as
 // Admin: view registrations for an event
 router.get('/:id/registrations', authenticateToken, requireRole('admin', 'super_admin', 'leader', 'pastor'), async (req, res, next) => {
   try {
+    const event = await Event.findByPk(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (req.user.role === 'leader' && (!req.user.ministryId || event.ministryId !== req.user.ministryId)) {
+      return res.status(403).json({ success: false, message: 'You can only view registrations for your own ministry\'s events.' });
+    }
     const registrations = await EventRegistration.findAll({ where: { eventId: req.params.id } });
     res.json({ success: true, data: registrations });
   } catch (err) { next(err); }

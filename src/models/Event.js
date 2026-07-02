@@ -16,6 +16,9 @@ const Event = sequelize.define('Event', {
   registrationRequired: { type: DataTypes.BOOLEAN, defaultValue: false },
   capacity: { type: DataTypes.INTEGER },
   isPublished: { type: DataTypes.BOOLEAN, defaultValue: true },
+  // Which ministry this event belongs to. Null = church-wide event (only pastors/admins
+  // may create those). Leaders are locked to creating/editing events for their own ministry.
+  ministryId: { type: DataTypes.UUID, allowNull: true },
 }, { tableName: 'events', timestamps: true });
 
 module.exports = Event;

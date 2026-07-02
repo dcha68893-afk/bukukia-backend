@@ -36,10 +36,18 @@ router.get('/:id', authenticateToken, requireRole('admin', 'super_admin', 'leade
   } catch (err) { next(err); }
 });
 
-router.put('/:id', authenticateToken, requireRole('admin', 'super_admin'), async (req, res, next) => {
+// Pastors can assign a member's ministry/cell group (i.e. designate who leads what);
+// only admin/super_admin can change role, membership status, or active flag.
+router.put('/:id', authenticateToken, requireRole('admin', 'super_admin', 'pastor'), async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'Member not found' });
+
+    const adminOnlyFields = ['role', 'membershipStatus', 'isActive'];
+    const requestedAdminFields = adminOnlyFields.filter((f) => req.body[f] !== undefined);
+    if (requestedAdminFields.length && !['admin', 'super_admin'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Only an admin can change role, membership status, or active flag.' });
+    }
 
     // Never allow self-promotion/demotion through this endpoint, even for admins.
     if (user.id === req.user.id && req.body.role !== undefined) {

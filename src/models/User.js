@@ -27,6 +27,14 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('member', 'leader', 'pastor', 'admin', 'super_admin'),
     defaultValue: 'member',
   },
+  // Which ministry/department this user leads. Only meaningful for role === 'leader':
+  // a leader is scoped to exactly one ministry and can only manage that ministry's
+  // events/content. Pastors, admins and super_admins are not scope-restricted.
+  // Referenced by routes/members.routes.js (allowed field) — was previously missing
+  // from the model, which silently discarded every attempt to assign it.
+  ministryId: { type: DataTypes.UUID, allowNull: true },
+  // Which cell group this member belongs to. Also referenced by members.routes.js.
+  cellGroupId: { type: DataTypes.UUID, allowNull: true },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
   lastLogin: { type: DataTypes.DATE },
   resetToken: { type: DataTypes.STRING },

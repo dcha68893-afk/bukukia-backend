@@ -4,10 +4,33 @@ const { authenticateToken, requireRole, optionalAuth } = require('../middleware/
  * Builds a standard public-read / admin-write CRUD router for a simple model.
  * Pass `publishedFilter` to restrict what the general public sees (e.g. { isPublished: true }).
  * Staff whose role is in `editRoles` bypass that filter so they can see/manage drafts too.
+ *
+ * Ministry scoping (optional): pass `scopedRoles` (e.g. ['leader']) together with
+ * `itemScopeField` (the field on the record identifying its scope, e.g. 'ministryId'
+ * or 'id' for the Ministry model itself) and `userScopeField` (the field on req.user
+ * to compare against, e.g. 'ministryId'). Roles in `scopedRoles` may then only
+ * update/delete records whose itemScopeField matches their own userScopeField value,
+ * and `createRoles` can be set separately to exclude them from creating brand-new
+ * records entirely (e.g. a leader can edit their own ministry's page but not spin up
+ * new ministries).
  */
-function buildCrudRouter({ Model, router, publishedFilter = {}, searchFields = [], editRoles = ['admin', 'super_admin'], deleteRoles = null }) {
+function buildCrudRouter({
+  Model, router, publishedFilter = {}, searchFields = [],
+  editRoles = ['admin', 'super_admin'],
+  deleteRoles = null,
+  createRoles = null,
+  scopedRoles = [],
+  itemScopeField = null,
+  userScopeField = null,
+}) {
   const { Op } = require('sequelize');
   const effectiveDeleteRoles = deleteRoles || ['admin', 'super_admin']; // deletion is always at least admin-level, regardless of editRoles
+  const effectiveCreateRoles = createRoles || editRoles;
+  const effectiveUserScopeField = userScopeField || itemScopeField;
+
+  function isScoped(user) {
+    return itemScopeField && scopedRoles.includes(user.role);
+  }
 
   function visibilityFilter(req) {
     if (req.user && editRoles.includes(req.user.role)) return {}; // staff see everything
@@ -47,33 +70,55 @@ function buildCrudRouter({ Model, router, publishedFilter = {}, searchFields = [
     }
   });
 
-  // Admin: create
-  router.post('/', authenticateToken, requireRole(...editRoles), async (req, res, next) => {
+  // Create
+  router.post('/', authenticateToken, requireRole(...effectiveCreateRoles), async (req, res, next) => {
     try {
-      const item = await Model.create(req.body);
+      const body = { ...req.body };
+      if (isScoped(req.user)) {
+        const myScope = req.user[effectiveUserScopeField];
+        if (!myScope) {
+          return res.status(403).json({ success: false, message: 'You have not been assigned a scope for this yet. Ask your pastor or admin.' });
+        }
+        body[itemScopeField] = myScope;
+      }
+      const item = await Model.create(body);
       res.status(201).json({ success: true, data: item });
     } catch (err) {
       next(err);
     }
   });
 
-  // Admin: update
+  // Update
   router.put('/:id', authenticateToken, requireRole(...editRoles), async (req, res, next) => {
     try {
       const item = await Model.findByPk(req.params.id);
       if (!item) return res.status(404).json({ success: false, message: 'Not found' });
-      await item.update(req.body);
+      const body = { ...req.body };
+      if (isScoped(req.user)) {
+        const myScope = req.user[effectiveUserScopeField];
+        if (!myScope || item[itemScopeField] !== myScope) {
+          return res.status(403).json({ success: false, message: 'You can only manage your own ministry\'s content.' });
+        }
+        delete body[itemScopeField]; // can't reassign it to another scope
+      }
+      await item.update(body);
       res.json({ success: true, data: item });
     } catch (err) {
       next(err);
     }
   });
 
-  // Admin: delete
+  // Delete
   router.delete('/:id', authenticateToken, requireRole(...effectiveDeleteRoles), async (req, res, next) => {
     try {
       const item = await Model.findByPk(req.params.id);
       if (!item) return res.status(404).json({ success: false, message: 'Not found' });
+      if (isScoped(req.user)) {
+        const myScope = req.user[effectiveUserScopeField];
+        if (!myScope || item[itemScopeField] !== myScope) {
+          return res.status(403).json({ success: false, message: 'You can only manage your own ministry\'s content.' });
+        }
+      }
       await item.destroy();
       res.json({ success: true, message: 'Deleted successfully' });
     } catch (err) {
