@@ -7,4 +7,5 @@ module.exports = buildCrudRouter({
   router,
   publishedFilter: { isApproved: true },
   searchFields: ['fullName', 'content'],
+  editRoles: ['leader', 'pastor', 'admin', 'super_admin'],
 });

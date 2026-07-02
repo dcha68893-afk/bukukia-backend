@@ -6,4 +6,5 @@ module.exports = buildCrudRouter({
   Model: GalleryItem,
   router,
   searchFields: ['title', 'album'],
+  editRoles: ['leader', 'pastor', 'admin', 'super_admin'],
 });

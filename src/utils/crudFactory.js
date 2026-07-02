@@ -1,17 +1,24 @@
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
 
 /**
  * Builds a standard public-read / admin-write CRUD router for a simple model.
- * Pass `publishedFilter` to restrict public GET results (e.g. { isPublished: true }).
+ * Pass `publishedFilter` to restrict what the general public sees (e.g. { isPublished: true }).
+ * Staff whose role is in `editRoles` bypass that filter so they can see/manage drafts too.
  */
-function buildCrudRouter({ Model, router, publishedFilter = {}, searchFields = [], editRoles = ['admin', 'super_admin'] }) {
+function buildCrudRouter({ Model, router, publishedFilter = {}, searchFields = [], editRoles = ['admin', 'super_admin'], deleteRoles = null }) {
   const { Op } = require('sequelize');
+  const effectiveDeleteRoles = deleteRoles || ['admin', 'super_admin']; // deletion is always at least admin-level, regardless of editRoles
 
-  // Public: list (with optional search + pagination)
-  router.get('/', async (req, res, next) => {
+  function visibilityFilter(req) {
+    if (req.user && editRoles.includes(req.user.role)) return {}; // staff see everything
+    return publishedFilter;
+  }
+
+  // List: public sees only published/approved items; staff (per editRoles) see everything
+  router.get('/', optionalAuth, async (req, res, next) => {
     try {
       const { search, page = 1, limit = 20 } = req.query;
-      const where = { ...publishedFilter };
+      const where = { ...visibilityFilter(req) };
       if (search && searchFields.length) {
         where[Op.or] = searchFields.map((f) => ({ [f]: { [Op.iLike]: `%${search}%` } }));
       }
@@ -28,10 +35,11 @@ function buildCrudRouter({ Model, router, publishedFilter = {}, searchFields = [
     }
   });
 
-  // Public: get one
-  router.get('/:id', async (req, res, next) => {
+  // Get one: same visibility rule as the list endpoint, so unpublished items
+  // can't be fetched directly by guessing an ID, but staff can still open them to edit.
+  router.get('/:id', optionalAuth, async (req, res, next) => {
     try {
-      const item = await Model.findByPk(req.params.id);
+      const item = await Model.findOne({ where: { id: req.params.id, ...visibilityFilter(req) } });
       if (!item) return res.status(404).json({ success: false, message: 'Not found' });
       res.json({ success: true, data: item });
     } catch (err) {
@@ -62,7 +70,7 @@ function buildCrudRouter({ Model, router, publishedFilter = {}, searchFields = [
   });
 
   // Admin: delete
-  router.delete('/:id', authenticateToken, requireRole(...editRoles), async (req, res, next) => {
+  router.delete('/:id', authenticateToken, requireRole(...effectiveDeleteRoles), async (req, res, next) => {
     try {
       const item = await Model.findByPk(req.params.id);
       if (!item) return res.status(404).json({ success: false, message: 'Not found' });

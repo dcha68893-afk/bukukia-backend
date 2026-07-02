@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { isAtLeast } = require('../config/roles');
 
 async function authenticateToken(req, res, next) {
   try {
@@ -33,6 +34,8 @@ async function optionalAuth(req, res, next) {
   }
 }
 
+// Exact allow-list. Use when access doesn't follow a strict hierarchy
+// (e.g. "pastor or admin can moderate prayer, but leader cannot").
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
@@ -43,4 +46,28 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authenticateToken, optionalAuth, requireRole };
+// Hierarchy cutoff. Use when "this role and everything above it" should pass
+// (e.g. requireMinRole('leader') lets leader, pastor, admin, super_admin through).
+function requireMinRole(minRole) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+    if (!isAtLeast(req.user.role, minRole)) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to perform this action' });
+    }
+    next();
+  };
+}
+
+// A user may always act on their own resource; otherwise falls back to a min role check.
+// Usage: requireSelfOrMinRole((req) => req.params.id, 'admin')
+function requireSelfOrMinRole(getResourceUserId, minRole) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+    const resourceUserId = getResourceUserId(req);
+    if (resourceUserId && resourceUserId === req.user.id) return next();
+    if (isAtLeast(req.user.role, minRole)) return next();
+    return res.status(403).json({ success: false, message: 'You do not have permission to perform this action' });
+  };
+}
+
+module.exports = { authenticateToken, optionalAuth, requireRole, requireMinRole, requireSelfOrMinRole };

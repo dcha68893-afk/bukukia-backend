@@ -6,4 +6,5 @@ module.exports = buildCrudRouter({
   Model: LiveStream,
   router,
   searchFields: ['title'],
+  editRoles: ['pastor', 'admin', 'super_admin'],
 });

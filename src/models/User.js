@@ -15,6 +15,7 @@ const User = sequelize.define('User', {
   city: { type: DataTypes.STRING },
   country: { type: DataTypes.STRING, defaultValue: 'Kenya' },
   occupation: { type: DataTypes.STRING },
+  familyInfo: { type: DataTypes.JSONB, defaultValue: [] }, // e.g. [{ name, relationship, age }]
   membershipDate: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
   baptismDate: { type: DataTypes.DATEONLY },
   membershipStatus: {

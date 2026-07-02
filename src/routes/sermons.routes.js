@@ -7,6 +7,7 @@ const base = buildCrudRouter({
   router,
   publishedFilter: { isPublished: true },
   searchFields: ['title', 'preacher', 'topic', 'series', 'bibleReferences'],
+  editRoles: ['pastor', 'admin', 'super_admin'],
 });
 
 // Track downloads/views

@@ -1,11 +1,12 @@
 const router = require('express').Router();
 const buildCrudRouter = require('../utils/crudFactory');
-const { Ministry } = require('../models');
+const { InventoryItem } = require('../models');
 
+// Inventory is staff-only; no public publishedFilter needed
 module.exports = buildCrudRouter({
-  Model: Ministry,
+  Model: InventoryItem,
   router,
-  publishedFilter: { isActive: true },
-  searchFields: ['name', 'description'],
+  publishedFilter: {},
+  searchFields: ['name', 'category', 'serialNumber'],
   editRoles: ['leader', 'pastor', 'admin', 'super_admin'],
 });

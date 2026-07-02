@@ -4,10 +4,12 @@ const { authenticateToken, requireRole, optionalAuth } = require('../middleware/
 const { Event, EventRegistration } = require('../models');
 
 // Public list (church calendar) - supports ?upcoming=true & ?category=
-router.get('/', async (req, res, next) => {
+// Staff (leader/pastor/admin/super_admin) also see unpublished/draft events so they can manage them.
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { upcoming, category, search, page = 1, limit = 20 } = req.query;
-    const where = { isPublished: true };
+    const isStaff = req.user && ['leader', 'pastor', 'admin', 'super_admin'].includes(req.user.role);
+    const where = isStaff ? {} : { isPublished: true };
     if (upcoming === 'true') where.startDate = { [Op.gte]: new Date() };
     if (category) where.category = category;
     if (search) where.title = { [Op.iLike]: `%${search}%` };
@@ -20,9 +22,11 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
-    const event = await Event.findByPk(req.params.id);
+    const isStaff = req.user && ['leader', 'pastor', 'admin', 'super_admin'].includes(req.user.role);
+    const where = isStaff ? { id: req.params.id } : { id: req.params.id, isPublished: true };
+    const event = await Event.findOne({ where });
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
     res.json({ success: true, data: event });
   } catch (err) { next(err); }

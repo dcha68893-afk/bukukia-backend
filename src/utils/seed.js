@@ -1,54 +1,99 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const sequelize = require('../config/db');
-const { User, Ministry, Sermon, Event, Announcement } = require('../models');
+const { User, Ministry, Announcement, Pastor, BibleVerse, CellGroup } = require('../models');
 
 async function seed() {
   try {
     await sequelize.authenticate();
     await sequelize.sync();
+    console.log('Database ready. Running seed...');
 
+    // ---- Super Admin ----
     const adminEmail = 'admin@gwikongepefa.org';
-    const existingAdmin = await User.findOne({ where: { email: adminEmail } });
-    if (!existingAdmin) {
-      const passwordHash = await bcrypt.hash('ChangeMe123!', 12);
+    if (!await User.findOne({ where: { email: adminEmail } })) {
       await User.create({
         firstName: 'Church', lastName: 'Admin', email: adminEmail,
-        passwordHash, role: 'super_admin', membershipStatus: 'active',
+        passwordHash: await bcrypt.hash('ChangeMe123!', 12),
+        role: 'super_admin', membershipStatus: 'active',
       });
-      console.log(`Created super admin: ${adminEmail} / ChangeMe123! (change this immediately)`);
+      console.log(`Super admin created: ${adminEmail} / ChangeMe123!  ← CHANGE THIS IMMEDIATELY`);
     }
 
-    const ministryCount = await Ministry.count();
-    if (ministryCount === 0) {
+    // ---- Seed Pastor account ----
+    const pastorEmail = 'pastor@gwikongepefa.org';
+    if (!await User.findOne({ where: { email: pastorEmail } })) {
+      await User.create({
+        firstName: 'Senior', lastName: 'Pastor', email: pastorEmail,
+        passwordHash: await bcrypt.hash('PastorPass123!', 12),
+        role: 'pastor', membershipStatus: 'active',
+      });
+      console.log(`Pastor account created: ${pastorEmail} / PastorPass123!  ← CHANGE THIS IMMEDIATELY`);
+    }
+
+    // ---- Ministries ----
+    if (await Ministry.count() === 0) {
       await Ministry.bulkCreate([
         { name: "Children's Ministry", slug: 'children', description: 'Nurturing the faith of our youngest members.', meetingSchedule: 'Sundays, 9:00 AM' },
         { name: 'Youth Ministry', slug: 'youth', description: 'Empowering the next generation in Christ.', meetingSchedule: 'Fridays, 5:00 PM' },
         { name: "Women's Ministry", slug: 'women', description: 'Fellowship and growth for women of faith.', meetingSchedule: 'Saturdays, 10:00 AM' },
         { name: "Men's Ministry", slug: 'men', description: 'Building godly men of integrity.', meetingSchedule: 'Saturdays, 7:00 AM' },
         { name: 'Worship Ministry', slug: 'worship', description: 'Leading the congregation in praise and worship.', meetingSchedule: 'Wednesdays, 6:00 PM' },
-        { name: 'Missions', slug: 'missions', description: 'Spreading the Gospel locally and abroad.', meetingSchedule: 'Monthly' },
-        { name: 'Prayer Ministry', slug: 'prayer', description: 'Interceding for the church and community.', meetingSchedule: 'Daily, 6:00 AM' },
+        { name: 'Missions', slug: 'missions', description: 'Spreading the Gospel locally and abroad.', meetingSchedule: 'Monthly — first Sunday' },
+        { name: 'Prayer Ministry', slug: 'prayer', description: 'Interceding for the church and community.', meetingSchedule: 'Daily 6:00 AM · Wednesdays 6:00 PM' },
         { name: 'Media Ministry', slug: 'media', description: 'Telling our story through media and technology.', meetingSchedule: 'Sundays, 8:00 AM' },
         { name: 'Small Groups', slug: 'small-groups', description: 'Growing together in close-knit fellowship.', meetingSchedule: 'Varies by group' },
       ]);
-      console.log('Seeded ministries.');
+      console.log('Ministries seeded.');
     }
 
-    const announcementCount = await Announcement.count();
-    if (announcementCount === 0) {
+    // ---- Leadership team ----
+    if (await Pastor.count() === 0) {
+      await Pastor.bulkCreate([
+        { fullName: 'Rev. John Mwangi', title: 'Senior Pastor', bio: 'Rev. Mwangi has served Gwikonge PEFA Church for over 15 years. His passion is discipleship and community transformation.', displayOrder: 1 },
+        { fullName: 'Pastor Jane Otieno', title: 'Associate Pastor', bio: 'Pastor Jane leads our Women\'s Ministry and counselling services.', displayOrder: 2 },
+        { fullName: 'Elder David Ochieng', title: 'Elder', bio: 'Elder David has been a pillar of our church since its founding.', displayOrder: 3 },
+      ]);
+      console.log('Leadership team seeded.');
+    }
+
+    // ---- Bible verses ----
+    if (await BibleVerse.count() === 0) {
+      await BibleVerse.bulkCreate([
+        { reference: 'Jeremiah 29:11', text: 'For I know the plans I have for you, declares the LORD, plans to prosper you and not to harm you, plans to give you hope and a future.', translation: 'NIV' },
+        { reference: 'John 3:16', text: 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.', translation: 'NIV' },
+        { reference: 'Philippians 4:13', text: 'I can do all this through him who gives me strength.', translation: 'NIV' },
+        { reference: 'Romans 8:28', text: 'And we know that in all things God works for the good of those who love him, who have been called according to his purpose.', translation: 'NIV' },
+        { reference: 'Proverbs 3:5-6', text: 'Trust in the LORD with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.', translation: 'NIV' },
+        { reference: 'Psalm 23:1', text: 'The LORD is my shepherd, I lack nothing.', translation: 'NIV' },
+        { reference: 'Isaiah 40:31', text: 'But those who hope in the LORD will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.', translation: 'NIV' },
+      ]);
+      console.log('Bible verses seeded.');
+    }
+
+    // ---- Cell groups ----
+    if (await CellGroup.count() === 0) {
+      await CellGroup.bulkCreate([
+        { name: 'Gwikonge Central', area: 'Gwikonge Town', leaderName: 'Elder Peter', meetingDay: 'Thursday', meetingTime: '6:00 PM', venue: 'Elder Peter\'s Home' },
+        { name: 'Northside Fellowship', area: 'North Gwikonge', leaderName: 'Sister Mary', meetingDay: 'Wednesday', meetingTime: '5:30 PM', venue: 'Community Hall Room 3' },
+      ]);
+      console.log('Cell groups seeded.');
+    }
+
+    // ---- Announcement ----
+    if (await Announcement.count() === 0) {
       await Announcement.create({
-        title: 'Welcome to our new website!',
-        content: 'We are excited to launch our new church website. Explore sermons, events, ministries, and more.',
+        title: 'Welcome to Gwikonge PEFA Church Online!',
+        content: 'We are delighted to launch our new church management system. You can now register as a member, submit prayer requests, give online, watch live services, and much more. God bless you!',
         type: 'news', isPinned: true,
       });
-      console.log('Seeded a welcome announcement.');
+      console.log('Welcome announcement seeded.');
     }
 
-    console.log('Seeding complete.');
+    console.log('\n✅ Seed complete! Visit /api/health to confirm the API is running.');
     process.exit(0);
   } catch (err) {
-    console.error('Seeding failed:', err);
+    console.error('Seed failed:', err);
     process.exit(1);
   }
 }

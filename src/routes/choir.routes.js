@@ -1,11 +1,11 @@
 const router = require('express').Router();
 const buildCrudRouter = require('../utils/crudFactory');
-const { Ministry } = require('../models');
+const { ChoirMember } = require('../models');
 
 module.exports = buildCrudRouter({
-  Model: Ministry,
+  Model: ChoirMember,
   router,
   publishedFilter: { isActive: true },
-  searchFields: ['name', 'description'],
+  searchFields: ['fullName', 'voicePart', 'instruments'],
   editRoles: ['leader', 'pastor', 'admin', 'super_admin'],
 });

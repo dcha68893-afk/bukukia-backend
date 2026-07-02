@@ -40,6 +40,21 @@ router.put('/:id', authenticateToken, requireRole('admin', 'super_admin'), async
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'Member not found' });
+
+    // Never allow self-promotion/demotion through this endpoint, even for admins.
+    if (user.id === req.user.id && req.body.role !== undefined) {
+      return res.status(403).json({ success: false, message: 'You cannot change your own role.' });
+    }
+
+    // Only super_admin may grant/revoke admin or super_admin roles.
+    const escalatingRoles = ['admin', 'super_admin'];
+    if (req.body.role !== undefined) {
+      const targetingPrivileged = escalatingRoles.includes(req.body.role) || escalatingRoles.includes(user.role);
+      if (targetingPrivileged && req.user.role !== 'super_admin') {
+        return res.status(403).json({ success: false, message: 'Only a super admin can assign or modify admin-level roles.' });
+      }
+    }
+
     const allowed = ['role', 'membershipStatus', 'isActive', 'cellGroupId', 'ministryId'];
     allowed.forEach((f) => { if (req.body[f] !== undefined) user[f] = req.body[f]; });
     await user.save();
