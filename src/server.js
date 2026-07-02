@@ -93,9 +93,15 @@ async function start() {
       await sequelize.sync({ alter: true });
       console.log('✅ Models synced (development mode).');
     } else {
-      // Safe production sync: only create missing tables, never drop or alter
-      await sequelize.sync({ force: false, alter: false });
-      console.log('✅ Models synced (production – create-only).');
+      // Production sync: creates any missing tables AND adds any columns that exist
+      // on a model but not yet in the database (this is what was causing errors like
+      // 'column "ministryId" does not exist' — new fields added to models never
+      // reached the live DB because alter was previously turned off).
+      // alter:true never drops your existing data rows; it only adds/updates columns
+      // to match the models. Take a DB backup before deploys that add new fields,
+      // as a general safety practice.
+      await sequelize.sync({ force: false, alter: true });
+      console.log('✅ Models synced (production – auto create + alter).');
     }
 
     app.listen(PORT, () => {
