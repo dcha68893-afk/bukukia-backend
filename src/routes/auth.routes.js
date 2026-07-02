@@ -2,7 +2,6 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const { verifyCaptcha } = require('../middleware/validate');
 const { User } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -23,7 +22,7 @@ function sanitize(user) {
 // POST /api/auth/register  (member self-registration / first-time visitor signup)
 router.post(
   '/register',
-  verifyCaptcha, [
+  [
     body('firstName').trim().notEmpty(),
     body('lastName').trim().notEmpty(),
     body('email').isEmail(),

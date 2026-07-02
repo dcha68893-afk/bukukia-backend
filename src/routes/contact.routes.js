@@ -1,9 +1,9 @@
 const router = require('express').Router();
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { contactRules, verifyCaptcha } = require('../middleware/validate');
+const { contactRules } = require('../middleware/validate');
 const { ContactMessage } = require('../models');
 
-router.post('/', verifyCaptcha, contactRules, async (req, res, next) => {
+router.post('/', contactRules, async (req, res, next) => {
   try {
     const { name, email, phone, subject, message } = req.body;
     if (!name || !email || !message) {

@@ -1,11 +1,11 @@
 const router = require('express').Router();
 const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
-const { prayerRules, verifyCaptcha } = require('../middleware/validate');
+const { prayerRules } = require('../middleware/validate');
 const { PrayerRequest, User } = require('../models');
 const { sendNotification } = require('../utils/notify');
 
 // POST /api/prayer-requests - submit (anyone, with optional login for ownership)
-router.post('/', optionalAuth, verifyCaptcha, prayerRules, async (req, res, next) => {
+router.post('/', optionalAuth, prayerRules, async (req, res, next) => {
   try {
     const { fullName, email, request, isAnonymous = false, isUrgent = false, isPublicOnWall = false } = req.body;
     if (!request) return res.status(400).json({ success: false, message: 'Prayer request content is required' });

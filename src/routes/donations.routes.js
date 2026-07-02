@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
-const { donationRules, verifyCaptcha } = require('../middleware/validate');
+const { donationRules } = require('../middleware/validate');
 const { Donation } = require('../models');
 const { sendNotification } = require('../utils/notify');
 
@@ -10,7 +10,7 @@ function generateReceiptNumber() {
 }
 
 // POST /api/donations - create donation intent
-router.post('/', optionalAuth, verifyCaptcha, donationRules, async (req, res, next) => {
+router.post('/', optionalAuth, donationRules, async (req, res, next) => {
   try {
     const { donorName, donorEmail, donorPhone, type, amount, method, isAnonymous, notes } = req.body;
     if (!amount || Number(amount) <= 0)
