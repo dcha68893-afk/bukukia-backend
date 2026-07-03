@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { isAtLeast } = require('../config/roles');
+const { hasAnyPermission, hasAllPermissions } = require('../config/permissions');
 
 async function authenticateToken(req, res, next) {
   try {
@@ -92,4 +93,45 @@ function requireOwnMinistryOrMinRole(getItemMinistryId, minRole = 'pastor') {
   };
 }
 
-module.exports = { authenticateToken, optionalAuth, requireRole, requireMinRole, requireSelfOrMinRole, requireOwnMinistryOrMinRole };
+// Fine-grained permission check, based on req.user.roleTitle (e.g.
+// 'finance_manager', 'camera_operator') rather than the coarse tier.
+//
+// IMPORTANT backward-compatibility rule: a user with NO roleTitle set
+// (which is every account that existed before granular roles were added,
+// plus any new account that's just a plain member/leader/pastor/admin/
+// super_admin) is NOT narrowed by this check — it passes through exactly
+// as it did before requirePermission existed. Only once someone is
+// deliberately assigned a specific job title (roleTitle) does the
+// permission matrix start restricting them to that title's permissions.
+// This means a plain 'admin' keeps blanket admin access, but a user
+// specifically assigned 'finance_manager' is correctly narrowed even
+// though finance_manager is also tier 'admin'.
+function requirePermission(...permissions) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+    if (!req.user.roleTitle) return next(); // no specific title assigned — defer entirely to the tier check
+    if (req.user.role === 'super_admin') return next();
+    if (!hasAnyPermission(req.user.roleTitle, permissions)) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to perform this action' });
+    }
+    next();
+  };
+}
+
+// Same as requirePermission, but requires ALL listed permissions (AND semantics).
+function requireAllPermissions(...permissions) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+    if (!req.user.roleTitle) return next(); // see requirePermission
+    if (req.user.role === 'super_admin') return next();
+    if (!hasAllPermissions(req.user.roleTitle, permissions)) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to perform this action' });
+    }
+    next();
+  };
+}
+
+module.exports = {
+  authenticateToken, optionalAuth, requireRole, requireMinRole, requireSelfOrMinRole,
+  requireOwnMinistryOrMinRole, requirePermission, requireAllPermissions,
+};

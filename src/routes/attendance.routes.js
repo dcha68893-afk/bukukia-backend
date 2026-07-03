@@ -1,6 +1,7 @@
 const router = require('express').Router();
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, requirePermission } = require('../middleware/auth');
 const { AttendanceRecord, User } = require('../models');
+const { PERMISSIONS } = require('../config/permissions');
 
 // Self check-in (e.g. via QR code scan that hits this endpoint while logged in)
 router.post('/check-in', authenticateToken, async (req, res, next) => {
@@ -16,7 +17,7 @@ router.post('/check-in', authenticateToken, async (req, res, next) => {
 });
 
 // Admin: manual check-in for a member (e.g. via QR scanner at the door, or front-desk entry)
-router.post('/', authenticateToken, requireRole('admin', 'super_admin', 'leader'), async (req, res, next) => {
+router.post('/', authenticateToken, requireRole('admin', 'super_admin', 'leader'), requirePermission(PERMISSIONS.RECORD_ATTENDANCE), async (req, res, next) => {
   try {
     const { userId, serviceDate, checkedInVia = 'manual' } = req.body;
     if (!userId || !serviceDate) return res.status(400).json({ success: false, message: 'userId and serviceDate are required' });
@@ -29,7 +30,7 @@ router.post('/', authenticateToken, requireRole('admin', 'super_admin', 'leader'
 });
 
 // Admin: attendance reports
-router.get('/', authenticateToken, requireRole('admin', 'super_admin', 'leader', 'pastor'), async (req, res, next) => {
+router.get('/', authenticateToken, requireRole('admin', 'super_admin', 'leader', 'pastor'), requirePermission(PERMISSIONS.VIEW_ATTENDANCE), async (req, res, next) => {
   try {
     const { serviceDate } = req.query;
     const where = serviceDate ? { serviceDate } : {};

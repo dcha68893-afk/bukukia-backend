@@ -26,6 +26,13 @@ const VolunteerSchedule = require('./VolunteerSchedule');
 const ChoirMember = require('./ChoirMember');
 const LibraryDocument = require('./LibraryDocument');
 const InventoryItem = require('./InventoryItem');
+const Project = require('./Project');
+const ProjectMilestone = require('./ProjectMilestone');
+const ProjectDocument = require('./ProjectDocument');
+const MinistryTask = require('./MinistryTask');
+const WorkflowTemplate = require('./WorkflowTemplate');
+const WorkflowRequest = require('./WorkflowRequest');
+const WorkflowStepLog = require('./WorkflowStepLog');
 
 // ---- Associations ----
 
@@ -61,6 +68,34 @@ User.hasMany(CellGroupMember, { foreignKey: 'userId' });
 Volunteer.hasMany(VolunteerSchedule, { foreignKey: 'volunteerId', as: 'schedules' });
 VolunteerSchedule.belongsTo(Volunteer, { foreignKey: 'volunteerId' });
 
+// Projects (item 6: Project Management) — optionally tied to a ministry,
+// with milestones and documents underneath.
+Project.belongsTo(Ministry, { foreignKey: 'ministryId', as: 'ministry' });
+Project.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdBy' });
+Project.hasMany(ProjectMilestone, { foreignKey: 'projectId', as: 'milestones', onDelete: 'CASCADE' });
+ProjectMilestone.belongsTo(Project, { foreignKey: 'projectId' });
+Project.hasMany(ProjectDocument, { foreignKey: 'projectId', as: 'documents', onDelete: 'CASCADE' });
+ProjectDocument.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectDocument.belongsTo(User, { foreignKey: 'uploadedByUserId', as: 'uploadedBy' });
+
+// Ministry tasks (item 7: Ministry Task Management) — scoped to one ministry,
+// optionally assigned to a member.
+Ministry.hasMany(MinistryTask, { foreignKey: 'ministryId', as: 'tasks' });
+MinistryTask.belongsTo(Ministry, { foreignKey: 'ministryId', as: 'ministry' });
+MinistryTask.belongsTo(User, { foreignKey: 'assignedToUserId', as: 'assignedTo' });
+User.hasMany(MinistryTask, { foreignKey: 'assignedToUserId', as: 'assignedTasks' });
+
+// Workflow engine (item 13) — a WorkflowTemplate defines the ordered steps;
+// each WorkflowRequest is one running instance of it, with a full audit
+// trail of who approved/rejected each step in WorkflowStepLog.
+WorkflowTemplate.hasMany(WorkflowRequest, { foreignKey: 'templateId', as: 'requests' });
+WorkflowRequest.belongsTo(WorkflowTemplate, { foreignKey: 'templateId', as: 'template' });
+WorkflowRequest.belongsTo(User, { foreignKey: 'subjectUserId', as: 'subject' });
+WorkflowRequest.belongsTo(User, { foreignKey: 'submittedByUserId', as: 'submittedBy' });
+WorkflowRequest.hasMany(WorkflowStepLog, { foreignKey: 'requestId', as: 'history', onDelete: 'CASCADE' });
+WorkflowStepLog.belongsTo(WorkflowRequest, { foreignKey: 'requestId' });
+WorkflowStepLog.belongsTo(User, { foreignKey: 'actedByUserId', as: 'actedBy' });
+
 module.exports = {
   sequelize,
   User, Ministry, Sermon, Event, EventRegistration,
@@ -69,4 +104,6 @@ module.exports = {
   BlogPost, LiveStream, AttendanceRecord, Notification,
   Pastor, BibleVerse, Booking, CellGroup, CellGroupMember,
   VolunteerSchedule, ChoirMember, LibraryDocument, InventoryItem,
+  Project, ProjectMilestone, ProjectDocument, MinistryTask,
+  WorkflowTemplate, WorkflowRequest, WorkflowStepLog,
 };

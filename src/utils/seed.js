@@ -1,7 +1,7 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const sequelize = require('../config/db');
-const { User, Ministry, Announcement, Pastor, BibleVerse, CellGroup } = require('../models');
+const { User, Ministry, Announcement, Pastor, BibleVerse, CellGroup, WorkflowTemplate } = require('../models');
 
 async function seed() {
   try {
@@ -31,6 +31,24 @@ async function seed() {
       console.log(`Pastor account created: ${pastorEmail} / PastorPass123!  ← CHANGE THIS IMMEDIATELY`);
     }
 
+    // ---- Seed granular-role accounts (demonstrates the permission matrix
+    // in config/permissions.js — safe to delete once real staff accounts
+    // are created via the admin panel) ----
+    const granularSeeds = [
+      { email: 'finance@gwikongepefa.org', firstName: 'Finance', lastName: 'Manager', roleTitle: 'finance_manager', password: 'FinancePass123!' },
+      { email: 'media@gwikongepefa.org', firstName: 'Media', lastName: 'Director', roleTitle: 'media_director', password: 'MediaPass123!' },
+    ];
+    for (const s of granularSeeds) {
+      if (!await User.findOne({ where: { email: s.email } })) {
+        await User.create({
+          firstName: s.firstName, lastName: s.lastName, email: s.email,
+          passwordHash: await bcrypt.hash(s.password, 12),
+          roleTitle: s.roleTitle, membershipStatus: 'active',
+        });
+        console.log(`${s.roleTitle} account created: ${s.email} / ${s.password}  ← CHANGE THIS IMMEDIATELY`);
+      }
+    }
+
     // ---- Ministries ----
     if (await Ministry.count() === 0) {
       await Ministry.bulkCreate([
@@ -45,6 +63,29 @@ async function seed() {
         { name: 'Small Groups', slug: 'small-groups', description: 'Growing together in close-knit fellowship.', meetingSchedule: 'Varies by group' },
       ]);
       console.log('Ministries seeded.');
+    }
+
+    // ---- Workflow templates ----
+    // Straight from the spec doc's example: Member requests → Secretary
+    // receives → Pastor approves → Class scheduled → Attendance recorded →
+    // Certificate generated → Member status updated. The last two steps
+    // ("certificate generated" / "member status updated") are collapsed
+    // into the template's completionEffect (set_baptism_date), since a
+    // literal PDF certificate is a separate feature (see the 'pdf' skill /
+    // library documents) — this wires up the approval CHAIN itself.
+    if (!await WorkflowTemplate.findOne({ where: { key: 'baptism_request' } })) {
+      await WorkflowTemplate.create({
+        key: 'baptism_request',
+        name: 'Baptism Request',
+        description: 'A member requests baptism; the secretary logs it, a pastor approves, and a class is scheduled before it completes.',
+        steps: [
+          { name: 'Secretary receives request', permission: 'view_members', minRole: 'admin' },
+          { name: 'Pastor approves', minRole: 'pastor' },
+          { name: 'Class scheduled & attendance recorded', minRole: 'pastor' },
+        ],
+        completionEffect: 'set_baptism_date',
+      });
+      console.log('Baptism Request workflow template seeded.');
     }
 
     // ---- Leadership team ----

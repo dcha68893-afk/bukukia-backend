@@ -1,9 +1,10 @@
 const router = require('express').Router();
 const { v4: uuidv4 } = require('uuid');
-const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
+const { authenticateToken, requireRole, optionalAuth, requirePermission } = require('../middleware/auth');
 const { donationRules } = require('../middleware/validate');
 const { Donation } = require('../models');
 const { sendNotification } = require('../utils/notify');
+const { PERMISSIONS } = require('../config/permissions');
 
 function generateReceiptNumber() {
   return `RCT-${Date.now().toString(36).toUpperCase()}-${uuidv4().slice(0, 4).toUpperCase()}`;
@@ -203,7 +204,7 @@ router.get('/:id/mpesa-status', async (req, res, next) => {
 });
 
 // POST /api/donations/:id/confirm - admin confirms manual payment (bank transfer / cash reconciliation)
-router.post('/:id/confirm', authenticateToken, requireRole('admin', 'super_admin'), async (req, res, next) => {
+router.post('/:id/confirm', authenticateToken, requireRole('admin', 'super_admin'), requirePermission(PERMISSIONS.CONFIRM_DONATIONS), async (req, res, next) => {
   try {
     const donation = await Donation.findByPk(req.params.id);
     if (!donation) return res.status(404).json({ success: false, message: 'Donation not found' });
@@ -259,7 +260,7 @@ router.get('/:id/receipt', authenticateToken, async (req, res, next) => {
 });
 
 // GET /api/donations - admin: full donation reports with filters
-router.get('/', authenticateToken, requireRole('admin', 'super_admin'), async (req, res, next) => {
+router.get('/', authenticateToken, requireRole('admin', 'super_admin'), requirePermission(PERMISSIONS.VIEW_DONATIONS), async (req, res, next) => {
   try {
     const { status, type, from, to } = req.query;
     const { Op } = require('sequelize');

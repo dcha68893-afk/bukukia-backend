@@ -29,5 +29,10 @@ router.use('/library',            require('./library.routes'));
 router.use('/inventory',          require('./inventory.routes'));
 router.use('/search',             require('./search.routes'));
 router.use('/qr',                 require('./qr.routes'));
+router.use('/roles',              require('./roles.routes'));
+router.use('/projects',           require('./projects.routes'));
+router.use('/ministry-tasks',     require('./ministry-tasks.routes'));
+router.use('/workflow-templates', require('./workflow-templates.routes'));
+router.use('/workflow-requests',  require('./workflow-requests.routes'));
 
 module.exports = router;
