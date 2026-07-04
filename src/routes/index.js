@@ -34,5 +34,6 @@ router.use('/projects',           require('./projects.routes'));
 router.use('/ministry-tasks',     require('./ministry-tasks.routes'));
 router.use('/workflow-templates', require('./workflow-templates.routes'));
 router.use('/workflow-requests',  require('./workflow-requests.routes'));
+router.use('/audit-logs',         require('./audit-logs.routes'));
 
 module.exports = router;

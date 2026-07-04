@@ -1,22 +1,35 @@
 const router = require('express').Router();
 const { authenticateToken, requireMinRole, optionalAuth } = require('../middleware/auth');
-const { Booking } = require('../models');
+const { Booking, Pastor } = require('../models');
 const { sendNotification } = require('../utils/notify');
 
 const BOOKING_TYPES = ['baptism','wedding','counseling','funeral','child_dedication','new_visitor','discipleship'];
 
-// POST /api/bookings - anyone submits a booking request
+// POST /api/bookings - anyone submits a booking request. pastorId is
+// optional — set when someone books via a specific leader's public profile
+// ("Book Appointment" button, see routes/leadership.routes.js), left null
+// when they just submit a general request for staff to triage and assign.
 router.post('/', optionalAuth, async (req, res, next) => {
   try {
-    const { type, fullName, email, phone, preferredDate, notes, partnerName, partnerPhone } = req.body;
+    const { type, fullName, email, phone, preferredDate, notes, partnerName, partnerPhone, pastorId } = req.body;
     if (!type || !BOOKING_TYPES.includes(type))
       return res.status(400).json({ success: false, message: `Type must be one of: ${BOOKING_TYPES.join(', ')}` });
     if (!fullName)
       return res.status(400).json({ success: false, message: 'Full name is required' });
 
+    let assignedTo = null;
+    if (pastorId) {
+      const pastor = await Pastor.findByPk(pastorId);
+      if (!pastor || !pastor.isActive || !pastor.acceptsAppointments) {
+        return res.status(400).json({ success: false, message: 'That leader is not currently accepting appointment requests' });
+      }
+      assignedTo = pastor.fullName; // keep the display fallback in sync with the structured link
+    }
+
     const booking = await Booking.create({
       userId: req.user ? req.user.id : null,
       type, fullName, email, phone, preferredDate, notes, partnerName, partnerPhone,
+      pastorId: pastorId || null, assignedTo,
     });
 
     // Notify the requester that it was received
@@ -53,7 +66,7 @@ router.put('/:id', authenticateToken, requireMinRole('leader'), async (req, res,
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     const prevStatus = booking.status;
-    const allowed = ['status', 'assignedTo', 'confirmedDate', 'adminNotes'];
+    const allowed = ['status', 'assignedTo', 'pastorId', 'confirmedDate', 'adminNotes'];
     allowed.forEach((f) => { if (req.body[f] !== undefined) booking[f] = req.body[f]; });
     await booking.save();
 

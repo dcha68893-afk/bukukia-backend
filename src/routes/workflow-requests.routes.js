@@ -4,6 +4,7 @@ const { WorkflowRequest, WorkflowTemplate, WorkflowStepLog, User } = require('..
 const { rankOf } = require('../config/roles');
 const { hasPermission } = require('../config/permissions');
 const { sendNotification } = require('../utils/notify');
+const { recordAudit } = require('../utils/audit');
 
 // Can this user act on this step? A step names EITHER/BOTH a minimum tier
 // (minRole) and a specific permission. super_admin always can. If the user
@@ -108,6 +109,11 @@ router.post('/:id/advance', authenticateToken, async (req, res, next) => {
     await WorkflowStepLog.create({
       requestId: request.id, stepIndex: request.currentStep, stepName: step.name,
       actedByUserId: req.user.id, decision, notes,
+    });
+    await recordAudit(req, {
+      action: `workflow_request.${decision}`, entityType: 'WorkflowRequest', entityId: request.id,
+      before: { status: 'in_progress', currentStep: request.currentStep },
+      after: { stepName: step.name, decision, notes },
     });
 
     if (decision === 'rejected') {

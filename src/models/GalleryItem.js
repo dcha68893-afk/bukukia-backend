@@ -9,6 +9,8 @@ const GalleryItem = sequelize.define('GalleryItem', {
   url: { type: DataTypes.STRING, allowNull: false },
   thumbnailUrl: { type: DataTypes.STRING },
   eventId: { type: DataTypes.UUID, allowNull: true },
+  // Optional: scopes this photo/video to one ministry's gallery tab.
+  ministryId: { type: DataTypes.UUID, allowNull: true },
 }, { tableName: 'gallery_items', timestamps: true });
 
 module.exports = GalleryItem;

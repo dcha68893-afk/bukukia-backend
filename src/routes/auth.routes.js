@@ -37,6 +37,19 @@ router.post(
       const existing = await User.findOne({ where: { email } });
       if (existing) return res.status(409).json({ success: false, message: 'An account with this email already exists' });
 
+      // Under soft-deletes (paranoid mode), a previously-removed member's row
+      // still occupies the unique email index even though the check above
+      // (which excludes soft-deleted rows) didn't find it. Catch that case
+      // with a clear message rather than letting it surface as a raw DB
+      // constraint error.
+      const softDeleted = await User.findOne({ where: { email }, paranoid: false });
+      if (softDeleted && softDeleted.deletedAt) {
+        return res.status(409).json({
+          success: false,
+          message: 'This email was previously associated with a removed account. Please contact church staff to reactivate it rather than registering again.',
+        });
+      }
+
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await User.create({ firstName, lastName, email, phone, passwordHash });
 
@@ -84,7 +97,8 @@ router.get('/me', authenticateToken, async (req, res) => {
 router.put('/me', authenticateToken, async (req, res, next) => {
   try {
     const fields = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'gender', 'maritalStatus',
-      'address', 'city', 'country', 'occupation', 'profileImage'];
+      'address', 'city', 'country', 'occupation', 'profileImage',
+      'familyInfo', 'talents', 'spiritualGifts', 'emergencyContact', 'medicalNotes'];
     fields.forEach((f) => {
       if (req.body[f] !== undefined) req.user[f] = req.body[f];
     });

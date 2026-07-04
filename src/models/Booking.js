@@ -22,8 +22,13 @@ const Booking = sequelize.define('Booking', {
   // For weddings / child dedication - secondary person
   partnerName: { type: DataTypes.STRING },
   partnerPhone: { type: DataTypes.STRING },
-  // Assigned pastor/counsellor
+  // Assigned pastor/counsellor. pastorId is the structured link (used by
+  // the leader profile's "upcoming appointments" count); assignedTo stays
+  // as a free-text fallback for bookings made before a specific leader
+  // profile existed, or when assigning to a role rather than a named person
+  // (e.g. "Counselling Team" generally).
   assignedTo: { type: DataTypes.STRING },
+  pastorId: { type: DataTypes.UUID, allowNull: true },
   status: {
     type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'),
     defaultValue: 'pending',

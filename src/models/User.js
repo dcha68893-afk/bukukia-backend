@@ -24,6 +24,21 @@ const User = sequelize.define('User', {
     defaultValue: 'visitor',
   },
   profileImage: { type: DataTypes.STRING },
+  // ── Profile depth (spec item 4: Member Profiles) ──────────────────────
+  talents: { type: DataTypes.JSONB, defaultValue: [] }, // e.g. ["Graphic Design", "Public Speaking"]
+  spiritualGifts: { type: DataTypes.JSONB, defaultValue: [] }, // e.g. ["Teaching", "Hospitality"]
+  emergencyContact: { type: DataTypes.JSONB, defaultValue: null }, // { name, relationship, phone }
+  // Sensitive: excluded from every GET /api/members response by default
+  // (see routes/members.routes.js) unless the requester holds
+  // VIEW_MEDICAL_NOTES. Self-reported by the member via PUT /api/auth/me,
+  // same as any other profile field, so someone can tell their own church
+  // about an allergy or condition without needing staff to enter it for them.
+  medicalNotes: { type: DataTypes.TEXT },
+  discipleshipStage: {
+    type: DataTypes.ENUM('seeker', 'new_believer', 'growing', 'mature', 'leader'),
+    allowNull: true,
+  },
+  coursesCompleted: { type: DataTypes.JSONB, defaultValue: [] }, // e.g. [{ name, completedDate }]
   // Coarse access tier. Kept as the source of truth for every existing
   // requireRole/requireMinRole/crudFactory check in the codebase. When
   // roleTitle is set, this is auto-derived from it (see beforeValidate
@@ -55,6 +70,13 @@ const User = sequelize.define('User', {
 }, {
   tableName: 'users',
   timestamps: true,
+  // Soft-delete: DELETE /api/members/:id (see routes/members.routes.js)
+  // calls user.destroy(), which under paranoid mode sets deletedAt instead
+  // of removing the row. Every findAll/findByPk automatically excludes
+  // soft-deleted rows unless { paranoid: false } is passed explicitly —
+  // no other code needed to change for reads to "just work" as before.
+  // Recoverable via POST /api/members/:id/restore (super_admin/senior_pastor).
+  paranoid: true,
   hooks: {
     // Whenever roleTitle changes (assigning "Finance Manager", "Camera
     // Operator", etc.), keep the legacy `role` tier column in lock-step so

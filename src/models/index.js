@@ -33,6 +33,8 @@ const MinistryTask = require('./MinistryTask');
 const WorkflowTemplate = require('./WorkflowTemplate');
 const WorkflowRequest = require('./WorkflowRequest');
 const WorkflowStepLog = require('./WorkflowStepLog');
+const AuditLog = require('./AuditLog');
+const CellGroupReport = require('./CellGroupReport');
 
 // ---- Associations ----
 
@@ -96,6 +98,18 @@ WorkflowRequest.hasMany(WorkflowStepLog, { foreignKey: 'requestId', as: 'history
 WorkflowStepLog.belongsTo(WorkflowRequest, { foreignKey: 'requestId' });
 WorkflowStepLog.belongsTo(User, { foreignKey: 'actedByUserId', as: 'actedBy' });
 
+AuditLog.belongsTo(User, { foreignKey: 'actorUserId', as: 'actor' });
+
+// Leader Profiles (item 3): a pastor's public profile can accept
+// appointment bookings, tracked via the existing Booking model.
+Pastor.hasMany(Booking, { foreignKey: 'pastorId', as: 'appointments' });
+Booking.belongsTo(Pastor, { foreignKey: 'pastorId', as: 'pastor' });
+
+// Cell group weekly reports (item 5) — the source of truth for growth charts.
+CellGroup.hasMany(CellGroupReport, { foreignKey: 'cellGroupId', as: 'reports', onDelete: 'CASCADE' });
+CellGroupReport.belongsTo(CellGroup, { foreignKey: 'cellGroupId' });
+CellGroupReport.belongsTo(User, { foreignKey: 'submittedByUserId', as: 'submittedBy' });
+
 module.exports = {
   sequelize,
   User, Ministry, Sermon, Event, EventRegistration,
@@ -105,5 +119,5 @@ module.exports = {
   Pastor, BibleVerse, Booking, CellGroup, CellGroupMember,
   VolunteerSchedule, ChoirMember, LibraryDocument, InventoryItem,
   Project, ProjectMilestone, ProjectDocument, MinistryTask,
-  WorkflowTemplate, WorkflowRequest, WorkflowStepLog,
+  WorkflowTemplate, WorkflowRequest, WorkflowStepLog, AuditLog, CellGroupReport,
 };
